@@ -68,7 +68,7 @@ the server's stderr.
 
 ## Tools
 
-Eleven read-only tools, and four that write:
+Twelve read-only tools, and five that write:
 
 | Tool | What it answers |
 |---|---|
@@ -87,6 +87,10 @@ Eleven read-only tools, and four that write:
 | `create_routine` | *Writes.* "Squat 5 × 5 at 100 kg, plank 3 × 60 s, Tuesdays and Fridays" → a routine in your plan. |
 | `update_routine` | *Writes.* Rename, replace or append exercises, move to other weekdays; every slot keeps the settings you did not mention. `expected_revision` makes it all-or-nothing against what you saw. |
 | `delete_routine` | *Writes.* Only with `confirm: true` and the `expected_revision` from `get_routine`. |
+| `get_measurements` | How is my waist moving? Body measurements field by field (circumferences, body fat, blood pressure, pulse) with first and latest reading, the change and check-in notes. |
+| `log_measurement` | *Writes.* "Waist 92.5 cm, right arm 34 cm" → that day's check-in, merged with any other reading of the day. |
+
+Routine exercises written by `create_routine` and `update_routine` can carry a rep range (`reps_min` + `reps`), a progression rule (`progression`: double, linear, steady…), a weight step (`increment`) and a superset label (`superset`, with `superset_rest_sec`), and a routine its own `progression`. The app then moves the weights between sessions by itself.
 
 `get_routine` and `preview_session` answer two different questions, and confusing them is the
 easiest way for a coach to give wrong advice. `get_routine` reports what the routine *stores*.

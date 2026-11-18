@@ -7,9 +7,10 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { TOOLS } from './tools.js'
 import { WRITE_TOOLS } from './write-tools.js'
 import { ROUTINE_TOOLS } from './routine-tools.js'
+import { MEASUREMENT_TOOLS } from './measurement-tools.js'
 
 export const VERSION = '0.2.0'
-export const ALL_TOOLS = [...TOOLS, ...WRITE_TOOLS, ...ROUTINE_TOOLS]
+export const ALL_TOOLS = [...TOOLS, ...WRITE_TOOLS, ...ROUTINE_TOOLS, ...MEASUREMENT_TOOLS]
 
 // What each tool needs of a scoped token: [category, level] (api/tokens.js TOKEN_CATEGORIES).
 export const TOOL_NEEDS = {
@@ -17,13 +18,14 @@ export const TOOL_NEEDS = {
   get_week_plan: ['plans', 'view'], get_programme: ['plans', 'view'],
   list_workouts: ['workouts', 'view'], get_workout: ['workouts', 'view'], estimate_1rm: ['workouts', 'view'],
   muscle_balance: ['workouts', 'view'], get_bodyweight: ['bodyweight', 'view'],
+  get_measurements: ['measurements', 'view'], log_measurement: ['measurements', 'apply'],
   // The library is not the user's data: any token that may see workouts or plans gets it.
   search_exercises: [['workouts', 'view'], ['plans', 'view']],
   log_workout: ['workouts', 'apply'],
   create_routine: ['plans', 'apply'], update_routine: ['plans', 'apply'], delete_routine: ['plans', 'apply'],
 }
 const RANK = { off: 0, view: 1, apply: 2 }
-const WRITES = new Set(['log_workout', 'create_routine', 'update_routine', 'delete_routine'])
+const WRITES = new Set(['log_workout', 'create_routine', 'update_routine', 'delete_routine', 'log_measurement'])
 
 /** Whether a token holding `scopes` can use tool `name`. No scopes (the data folder, a paired
  *  session): every tool. A tool not in TOOL_NEEDS is never offered to a scoped token. */
@@ -38,10 +40,11 @@ export function toolAllowed(name, scopes) {
 /* What the assistant reads once when it connects (MCP `instructions`): how the tools fit together,
    so Claude, ChatGPT or Gemini plan with the library's ids and ask before they write. */
 export const INSTRUCTIONS = [
-  'openGym is the user\'s own gym tracker: their routines, weekly plan, logged workouts and body weight.',
+  'openGym is the user\'s own gym tracker: their routines, weekly plan, logged workouts, body weight and body measurements.',
   'Read before you advise: list_routines and get_week_plan for the plan, list_workouts and estimate_1rm for how training went, muscle_balance for what is under- or over-trained.',
   'To build or change a plan, find each exercise with search_exercises and pass its id, then call create_routine or update_routine with dry_run: true, show the user the preview and save only after they agree.',
-  'To log a session the user describes, use log_workout (dry_run first if you had to guess anything).',
+  'To log a session the user describes, use log_workout (dry_run first if you had to guess anything). Body measurements: get_measurements and log_measurement.',
+  'A routine exercise can carry a rep range (reps_min + reps), a progression rule, a weight increment and a superset label: set them so the app progresses the user between check-ins, and read preview_session before naming a weight.',
   'Weights are in the profile\'s unit (kg or lb) unless you say otherwise. Deleting needs the user\'s explicit yes.',
   'A tool that is missing was not granted: the user picks what you may see and change when they connect openGym.',
 ].join(' ')

@@ -15,6 +15,7 @@ import { localUid, invalidate, withProfile, currentProfile } from './state.js'
 import { apiConfig, apiFetch, profilePaths } from './api-client.js'
 import { savesOf, WRITE_LIMIT } from './write-tools.js'
 import { createRoutine, updateRoutine, removeRoutine, routineWeekdays, ROUTINE_LIMITS, WEEKDAYS } from '../../frontend/src/lib/routine-write.js'
+import { POLICIES } from '../../frontend/src/lib/progression.js'
 
 const MAX_ATTEMPTS = 3
 const fail = (code, message) => Object.assign(new Error(message), { code })
@@ -23,7 +24,7 @@ const fail = (code, message) => Object.assign(new Error(message), { code })
  * Reads the profile, applies `change(S)` (→ { problems } | { result }), and writes it back.
  * `exact`: a revision the write must land on, no retry. → the tool's answer.
  */
-async function writePlan({ change, exact = null, dryRun = false, env, fetchImpl, view }) {
+export async function writePlan({ change, exact = null, dryRun = false, env, fetchImpl, view }) {
   const cfg = apiConfig(env)
   const opts = fetchImpl ? { fetchImpl } : {}
   const paths = profilePaths(cfg)
@@ -83,7 +84,14 @@ const exerciseSchema = z.object({
   weight: z.number().min(0).optional().describe('Planned load in `unit`; omit or 0 to start from what the user lifted last time.'),
   rest_sec: z.number().int().min(0).max(ROUTINE_LIMITS.maxRestSec).optional().describe('Rest after each set, seconds. 0 or omitted: the global rest timer.'),
   note: z.string().max(ROUTINE_LIMITS.maxNote).optional().describe('A note shown with this exercise in the workout.'),
+  reps_min: z.number().int().min(0).max(ROUTINE_LIMITS.maxReps).optional().describe('Bottom of a rep range; `reps` is the top ("8-12" is reps_min 8, reps 12). Below reps. 0 removes the range. For a per-side exercise (side: true in get_routine) reps count both sides.'),
+  reps_max: z.number().int().min(0).max(ROUTINE_LIMITS.maxReps).optional().describe('Bodyweight exercises: the rep ceiling at which a set is added instead of more reps. 0 removes it.'),
+  progression: z.enum(['default', ...POLICIES]).optional().describe('This exercise\'s progression rule: double (work up the rep range, then add weight), linear, steady, triple, greyskull, undulating, density, ladder, time (holds), off. "default" follows the routine\'s or the profile\'s rule.'),
+  increment: z.number().min(0).optional().describe('Weight added when progression moves the load, in `unit` (2.5 for dumbbells, 5 for a stack pin). 0 goes back to the exercise\'s own step.'),
+  superset: z.string().max(ROUTINE_LIMITS.maxSuperset).optional().describe('A superset label: exercises next to each other with the same label become one superset, shown under that name. "" takes the exercise out of its superset; omitted keeps it as it is.'),
+  superset_rest_sec: z.number().int().min(0).max(ROUTINE_LIMITS.maxRestSec).optional().describe('Rest after each round of the superset, seconds. With `superset`.'),
 })
+const routineProgression = z.enum(['default', ...POLICIES.filter(p => p !== 'time')]).optional().describe('The routine\'s progression rule for exercises without their own. "default" follows the profile\'s.')
 const weekdaysSchema = z.array(z.enum(WEEKDAYS)).max(7)
 
 export const createRoutineTool = {
@@ -99,6 +107,7 @@ export const createRoutineTool = {
     exercises: z.array(exerciseSchema).min(1).max(ROUTINE_LIMITS.maxExercises),
     weekdays: weekdaysSchema.optional().describe('The weekdays to plan it on.'),
     unit: z.enum(['kg', 'lb']).optional().describe('The unit weights are given in; defaults to the profile\'s.'),
+    progression: routineProgression,
     dry_run: z.boolean().optional(),
   },
   handler: async (p, { env = process.env, fetchImpl } = {}) => writePlan({
@@ -111,7 +120,8 @@ export const createRoutineTool = {
 export const updateRoutineTool = {
   name: 'update_routine',
   description: [
-    'Change a routine: rename it, replace its exercise list, append exercises, or move it to other weekdays. Use routine_id from list_routines.',
+    'Change a routine: rename it, replace its exercise list, append exercises, move it to other weekdays, or set its progression rule. Use routine_id from list_routines.',
+    'Each exercise can carry a rep range (reps_min + reps), a progression rule, a weight increment and a superset label, so the app moves the weights between sessions on its own.',
     '`exercises` is the whole new list in order; an exercise named again keeps everything its slot had (rest, warm-ups, progression, notes) except what you pass. `add_exercises` appends. `weekdays` is every day it should be on (it leaves the others); omit it to leave the schedule alone.',
     'Pass expected_revision (from get_routine) when the user confirmed a change against what they saw: if the profile moved since, nothing is saved and you get a conflict to read again.',
   ].join(' '),
@@ -122,12 +132,13 @@ export const updateRoutineTool = {
     add_exercises: z.array(exerciseSchema).min(1).max(ROUTINE_LIMITS.maxExercises).optional(),
     weekdays: weekdaysSchema.optional(),
     unit: z.enum(['kg', 'lb']).optional(),
+    progression: routineProgression,
     expected_revision: z.number().int().min(0).optional(),
     dry_run: z.boolean().optional(),
   },
   handler: async (p, { env = process.env, fetchImpl } = {}) => {
-    if (p.name == null && p.exercises == null && p.add_exercises == null && p.weekdays == null) {
-      return { saved: false, problems: [{ field: 'routine', problem: 'nothing to change: pass name, exercises, add_exercises or weekdays' }] }
+    if (p.name == null && p.exercises == null && p.add_exercises == null && p.weekdays == null && p.progression == null) {
+      return { saved: false, problems: [{ field: 'routine', problem: 'nothing to change: pass name, exercises, add_exercises, weekdays or progression' }] }
     }
     return writePlan({
       env, fetchImpl, dryRun: p.dry_run === true, exact: p.expected_revision ?? null,

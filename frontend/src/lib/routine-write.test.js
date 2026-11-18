@@ -86,3 +86,66 @@ test('weekdaysOf', () => {
   expect(weekdaysOf([7]).problem).toBeTruthy()
   expect(weekdaysOf('monday').problem).toBeTruthy()
 })
+
+describe('rep ranges, progression, increments and supersets', () => {
+  test('a double-progression slot with its range, step and rule', () => {
+    const S = base()
+    const r = createRoutine(S, { name: 'A', progression: 'double', exercises: [
+      { exercise: 'squat', sets: 3, reps: 12, reps_min: 8, weight: 30, increment: 2.5, progression: 'double' },
+    ] }, { id: 'n1' })
+    expect(r.problems).toBeUndefined()
+    expect(r.routine.prog).toBe('double')
+    expect(r.routine.ex[0]).toMatchObject({ id: '0043', reps: 12, repsMin: 8, inc: 2.5, prog: 'double' })
+  })
+  test('a range needs its bottom below the top, and a rule the mode can take', () => {
+    const r = createRoutine(base(), { name: 'B', exercises: [
+      { exercise: 'squat', reps: 8, reps_min: 8 },
+      { exercise: 'plank', seconds: 60, progression: 'double' },
+      { exercise: 'squat', progression: 'sideways' },
+    ] })
+    expect(r.problems.map(p => p.field)).toEqual(['exercises[0].reps_min', 'exercises[1].progression', 'exercises[2].progression'])
+  })
+  test('0 and default take a setting away; an edit keeps what it does not mention', () => {
+    const S = base()
+    const r = updateRoutine(S, 'r1', { progression: 'steady', exercises: [{ exercise: '0025', reps_min: 4, increment: 5 }, { exercise: '0025', progression: 'default' }] })
+    expect(r.problems).toBeUndefined()
+    expect(r.routine.prog).toBe('steady')
+    expect(r.routine.ex[0]).toMatchObject({ reps: 6, repsMin: 4, inc: 5, prog: 'double', restSec: 180 })
+    expect(r.routine.ex[1].prog).toBeUndefined()
+    const r2 = updateRoutine(S, 'r1', { progression: 'default', exercises: [{ exercise: '0025', reps_min: 0, increment: 0 }, { exercise: '0025' }] })
+    expect(r2.routine.prog).toBeUndefined()
+    expect(r2.routine.ex[0].repsMin).toBeUndefined()
+    expect(r2.routine.ex[0].inc).toBeUndefined()
+  })
+  test('an increment in pounds is stored in the profile\'s kilograms', () => {
+    const r = createRoutine(base(), { name: 'C', unit: 'lb', exercises: [{ exercise: 'squat', increment: 5 }] })
+    expect(r.routine.ex[0].inc).toBe(2.27)
+  })
+  test('the same label links neighbours into one named superset with its rest', () => {
+    const r = createRoutine(base(), { name: 'Arms', exercises: [
+      { exercise: 'squat' },
+      { exercise: 'dumbbell curl', superset: 'Arm pair', superset_rest_sec: 75 },
+      { exercise: 'bench press', superset: 'Arm pair' },
+    ] })
+    expect(r.problems).toBeUndefined()
+    const [a, b, c] = r.routine.ex
+    expect(a.sg).toBeUndefined()
+    expect(b.sg).toBeTruthy()
+    expect(c.sg).toBe(b.sg)
+    expect(b).toMatchObject({ sgName: 'Arm pair', sgRest: 75 })
+    expect(c).toMatchObject({ sgName: 'Arm pair', sgRest: 75 })
+  })
+  test('a superset of one, or one split by another exercise, is refused', () => {
+    expect(createRoutine(base(), { name: 'D', exercises: [{ exercise: 'squat', superset: 'x' }, { exercise: 'plank' }] }).problems[0].problem).toMatch(/at least two/)
+    expect(createRoutine(base(), { name: 'E', exercises: [{ exercise: 'squat', superset: 'x' }, { exercise: 'plank' }, { exercise: 'bench press', superset: 'x' }] }).problems[0].problem).toMatch(/next to each other/)
+  })
+  test('an empty label takes an exercise out of its superset; no label keeps it', () => {
+    const S = base()
+    S.routines[0].ex = S.routines[0].ex.map(e => ({ ...e, sg: 'g1', sgName: 'Pair' }))
+    const keep = updateRoutine(structuredClone(S), 'r1', { exercises: [{ exercise: '0025', sets: 2 }, { exercise: '0025' }] })
+    expect(keep.routine.ex.map(e => e.sg)).toEqual(['g1', 'g1'])
+    const out = updateRoutine(S, 'r1', { exercises: [{ exercise: '0025', superset: '' }, { exercise: '0025' }] })
+    expect(out.routine.ex.map(e => e.sg)).toEqual([undefined, undefined])
+    expect(out.routine.ex[1].sgName).toBeUndefined()
+  })
+})
