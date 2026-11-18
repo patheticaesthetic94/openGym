@@ -186,6 +186,7 @@ export const getRoutine = {
           // Each pyramid set's own planned weight (#445), 0 meaning it starts from that set last time.
           pyramid_weight: mode === 'reps' && Array.isArray(cfg.pyramid) && cfg.pyramid.length && Array.isArray(cfg.pyramidWeight) && cfg.pyramidWeight.length ? cfg.pyramidWeight : undefined,
           sec: mode === 'time' ? (cfg.sec || 0) : undefined,
+          meters: mode === 'distance' ? (cfg.m || 20) : undefined,
           min: mode === 'cardio' ? (cfg.min || 0) : undefined,
           speed: mode === 'cardio' ? (cfg.speed || 0) : undefined,
           weight: cfg.weight != null ? cfg.weight : undefined,

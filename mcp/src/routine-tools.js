@@ -81,6 +81,7 @@ const exerciseSchema = z.object({
   sets: z.number().int().min(1).max(ROUTINE_LIMITS.maxSets).optional().describe('Number of sets. Omit for the profile\'s default (3 unless they set their own).'),
   reps: z.number().int().min(1).max(ROUTINE_LIMITS.maxReps).optional().describe('Reps per set, for a rep exercise.'),
   seconds: z.number().int().min(1).max(ROUTINE_LIMITS.maxSec).optional().describe('Seconds per set, for a hold (plank). Not with reps.'),
+  meters: z.number().int().min(1).max(ROUTINE_LIMITS.maxMeters).optional().describe('Metres per set, for an exercise logged by distance (a farmer\'s carry, a sled push).'),
   weight: z.number().min(0).optional().describe('Planned load in `unit`; omit or 0 to start from what the user lifted last time.'),
   rest_sec: z.number().int().min(0).max(ROUTINE_LIMITS.maxRestSec).optional().describe('Rest after each set, seconds. 0 or omitted: the global rest timer.'),
   note: z.string().max(ROUTINE_LIMITS.maxNote).optional().describe('A note shown with this exercise in the workout.'),

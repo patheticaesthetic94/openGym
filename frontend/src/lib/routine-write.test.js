@@ -149,3 +149,12 @@ describe('rep ranges, progression, increments and supersets', () => {
     expect(out.routine.ex[1].sgName).toBeUndefined()
   })
 })
+
+describe('distance', () => {
+  test('a carry is planned in metres; reps exercises refuse a distance', () => {
+    const r = createRoutine(base(), { name: 'Carry', exercises: [{ exercise: 'farmers walk', sets: 3, meters: 35, weight: 20 }] })
+    expect(r.problems).toBeUndefined()
+    expect(r.routine.ex[0]).toMatchObject({ mode: 'distance', m: 35, weight: 20, sets: 3 })
+    expect(createRoutine(base(), { name: 'X', exercises: [{ exercise: 'squat', meters: 20 }] }).problems[0].field).toBe('exercises[0].meters')
+  })
+})

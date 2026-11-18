@@ -16,7 +16,7 @@ import { isCardio } from './exercises.js'
 import { POLICIES_FOR } from './progression.js'
 
 const LB_TO_KG = 0.45359237
-export const ROUTINE_LIMITS = { maxExercises: 40, maxSets: 20, maxReps: 100, maxSec: 3600, maxRestSec: 900, maxKg: 2000, maxName: 80, maxNote: 280, maxIncKg: 50, maxSuperset: 40 }
+export const ROUTINE_LIMITS = { maxExercises: 40, maxSets: 20, maxReps: 100, maxSec: 3600, maxMeters: 5000, maxRestSec: 900, maxKg: 2000, maxName: 80, maxNote: 280, maxIncKg: 50, maxSuperset: 40 }
 // JS getDay() order, the state's own (S.week is keyed 0 Sunday … 6 Saturday).
 export const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 
@@ -63,6 +63,12 @@ function slotOf(S, ex, base, unit, at, problems) {
   if (reps != null) { slot.reps = Math.round(reps); if (slot.repsMin >= slot.reps) delete slot.repsMin }
   const sec = check('seconds', ex?.seconds, 1, ROUTINE_LIMITS.maxSec)
   if (sec != null) slot.sec = Math.round(sec)
+  // A carry or a sled push is planned by its distance per set (`m`, metres).
+  const meters = check('meters', ex?.meters, 1, ROUTINE_LIMITS.maxMeters)
+  if (meters != null) {
+    if (slot.mode !== 'distance') problems.push({ field: `${at}.meters`, problem: 'a distance is for a carry or a sled (an exercise logged by distance)' })
+    else slot.m = Math.round(meters)
+  }
   const rest = check('rest_sec', ex?.rest_sec, 0, ROUTINE_LIMITS.maxRestSec)
   if (rest != null) { if (rest > 0) slot.restSec = Math.round(rest); else delete slot.restSec }
   if (ex?.weight != null) {
